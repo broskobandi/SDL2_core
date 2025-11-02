@@ -20,6 +20,12 @@ int main(void) {
 
 	sdl.load_texture(paths);
 
+	Sdl::RenderData data;
+	data.dstrect = SDL_Rect{0, 0, 50, 50};
+	data.col_or_tex = "../assets/face2.bmp";
+
+	sdl.draw(data);
+
 	} catch (const std::runtime_error& e) {
 		std::cerr << e.what() << "\n";
 	}
