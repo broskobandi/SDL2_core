@@ -6,7 +6,6 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <iostream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -14,14 +13,20 @@
 #include <vector>
 
 #ifndef NDEBUG
+#ifndef TEST
+#include <iostream>
 #define DBGMSG(msg)\
-	std::cout << "[SDL2_CORE_DEBUG] " << msg << "\n";
+	std::cout << "[SDL2_CORE_DEBUG] " << (msg) << "\n";
+#else
+inline thread_local std::string dbg_msg;
+#define DBGMSG(msg)\
+	dbg_msg = (msg)
+#endif
 #else
 #define DBGMSG(msg)
 #endif
 
 namespace SDL2_Core {
-
 
 class Sdl {
 private:
@@ -85,13 +90,15 @@ public:
 	void load_texture(std::string path) {
 		auto maybe_tex = textures_map.find(path);
 		if (maybe_tex != textures_map.end()) {
-			DBGMSG("Texture for " << path << " was loaded earlier.");
+			DBGMSG("Texture was loaded earlier.");
 			return;
 		}
 		auto sur = Surface(
 			[&](){
 				auto s = SDL_LoadBMP(path.data());
 				if (!s) throw std::runtime_error("Failed to load bmp.");
+				DBGMSG("bmp loaded:");
+				DBGMSG(path);
 				return s;
 			}(),
 			[](SDL_Surface* s) {
@@ -110,12 +117,21 @@ public:
 			}
 		);
 		textures_map.emplace(path, std::move(tex));
-		DBGMSG("Texture loaded for: " << path);
+		DBGMSG("New texture loaded.");
 	}
 	void load_texture(std::vector<std::string> paths) {
 		for (auto path : paths) {
 			load_texture(path);
 		}
+	}
+	void set_draw_color(SDL_Color col) {
+		if (SDL_SetRenderDrawColor(ren.get(), col.r, col.g, col.b, col.a))
+			throw std::runtime_error("Failed to set draw color.");
+	}
+	void clear(SDL_Color col) {
+		set_draw_color(col);
+		if (SDL_RenderClear(ren.get()))
+			throw std::runtime_error("Failed to clear renderer.");
 	}
 	void draw(RenderData data) {
 		SDL_Rect *srcrect = data.srcrect.has_value() ? &data.srcrect.value() : nullptr;
@@ -139,12 +155,14 @@ public:
 			DBGMSG("Texture rendered.");
 		} else {
 			SDL_Color col = std::get<SDL_Color>(data.col_or_tex);
-			if (SDL_SetRenderDrawColor(ren.get(), col.r, col.g, col.b, col.a))
-				throw std::runtime_error("Failed to set render draw color.");
+			set_draw_color(col);
 			if (SDL_RenderFillRect(ren.get(), dstrect))
 				throw std::runtime_error("Failed to fill rect.");
 			DBGMSG("Rect rendered.");
 		}
+	}
+	void present() {
+		SDL_RenderPresent(ren.get());
 	}
 };
 
