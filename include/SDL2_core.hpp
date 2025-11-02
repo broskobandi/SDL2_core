@@ -2,57 +2,60 @@
 #define SDL2_CORE_HPP
 
 #include <SDL2/SDL.h>
+#include <map>
+#include <memory>
 #include <stdexcept>
 #include <iostream>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #ifndef NDEBUG
 #define DBGMSG(msg)\
-	std::cout << "[SDL2_CORE_DEBUG] " << (msg) << "\n";
+	std::cout << "[SDL2_CORE_DEBUG] " << msg << "\n";
 #else
 #define DBGMSG(msg)
 #endif
 
 namespace SDL2_Core {
 
-class Texture {
-private:
-	SDL_Texture* tex;
-	friend class Renderer;
-	Texture(SDL_Texture* tex) : tex(tex) {}
-public:
-	~Texture() {
-		if (tex)
-			SDL_DestroyTexture(tex);
-	}
-};
-
-class Surface {
-private:
-	SDL_Surface* sur;
-	friend class Sdl;
-	Surface(SDL_Surface* sur) : sur(sur) {}
-public:
-	SDL_Surface* get() const {
-		return sur;
-	}
-	~Surface() {
-		if (sur)
-			SDL_FreeSurface(sur);
-	}
-};
-
 class Renderer {
 private:
+
+	using Surface = std::unique_ptr<SDL_Surface, void(*)(SDL_Surface*)>;
+	using Texture = std::unique_ptr<SDL_Texture, void(*)(SDL_Texture*)>;
+
 	SDL_Renderer* ren;
 	friend class Window;
+	std::map<std::string, Texture> textures_map;
 	Renderer(SDL_Renderer* ren) : ren(ren) {}
 public:
-	Texture create_texture(const Surface& sur) {
-		auto t = SDL_CreateTextureFromSurface(ren, sur.get());
-		if (!t) throw std::runtime_error("Failed to create texture.");
-		return t;
+	void load_texture(std::string path) {
+		auto maybe_tex = textures_map.find(path);
+		if (maybe_tex != textures_map.end()) {
+			DBGMSG(path << " was loaded earlier.");
+			return;
+		}
+		auto sur = Surface(
+			[&](){
+				auto s = SDL_LoadBMP(path.data());
+				if (!s) throw std::runtime_error("Failed to load bmp.");
+				return s;
+			}(),
+			[](SDL_Surface* s) {
+				if (s) SDL_FreeSurface(s);
+			}
+		);
+		auto tex = Texture(
+			[&](){
+				auto t = SDL_CreateTextureFromSurface(ren, sur.get());
+				if (!t) throw std::runtime_error("Failed to create texture.");
+				return t;
+			}(),
+			[](SDL_Texture* t) {
+				if (t) SDL_DestroyTexture(t);
+			}
+		);
 	}
 	~Renderer() {
 		if (ren)
@@ -97,11 +100,6 @@ public:
 		if (!win) throw std::runtime_error("Failed to create window.");
 		DBGMSG("Window created.");
 		return win;
-	}
-	Surface load_bmp(std::string_view path) {
-		auto s = SDL_LoadBMP(path.data());
-		if (!s) throw std::runtime_error("Failed to load bmp.");
-		return s;
 	}
 	~Sdl() {
 		SDL_Quit();
