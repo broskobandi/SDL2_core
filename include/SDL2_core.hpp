@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #ifndef NDEBUG
 #define DBGMSG(msg)\
@@ -56,6 +57,12 @@ public:
 				if (t) SDL_DestroyTexture(t);
 			}
 		);
+		textures_map.emplace(path, std::move(tex));
+	}
+	void load_texture(std::vector<std::string> paths) {
+		for (auto path : paths) {
+			load_texture(path);
+		}
 	}
 	~Renderer() {
 		if (ren)
