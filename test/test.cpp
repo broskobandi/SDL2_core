@@ -37,6 +37,18 @@ int main(void) {
 	sdl.draw(data);
 	CTEST(dbg_msg == "Rect rendered.");
 
+	SDL_Rect text_rect =
+		sdl.load_text(
+			"some text", {100, 100, 100, 255}, {0, 0}, "../MononokiNerdFont-Regular.ttf", 99
+	);
+	CTEST(dbg_msg == "Text loaded.");
+
+	data.col_or_tex = "some text";
+	data.dstrect = text_rect;
+
+	sdl.draw(data);
+	CTEST(dbg_msg == "Texture rendered.");
+
 	} catch (const std::runtime_error& e) {
 		std::cerr << e.what() << "\n";
 	}

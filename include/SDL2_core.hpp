@@ -68,7 +68,6 @@ class Sdl {
 
 private:
 
-	// For the test utility
 	// Custom types
 
 	using Texture = std::unique_ptr<SDL_Texture, void(*)(SDL_Texture*)>;
@@ -91,14 +90,13 @@ private:
 			DBGMSG("SDL2 and TTF terminated.");
 		}
 	};
-
+	
 	// Variables
 
 	Base base;
 	Window win;
 	Renderer ren;
 	std::map<std::string, Texture> textures_map;
-	std::map<std::string, Texture> texts_map;
 
 	// Private methods
 	
@@ -140,6 +138,14 @@ public:
 
 		/** The texture's flip state. */
 		SDL_RendererFlip flip {SDL_FLIP_NONE};
+
+		/** Text to be rendered.
+		 * If nullopt, texture will be considered as non-text. */
+		std::optional<std::string> text;
+
+		/** Size of the font to be rendered.
+		 * If nullopt, texture will be considered as non-text. */
+		std::optional<int> ptsize;
 	};
 
 	// Constructor
@@ -200,17 +206,6 @@ public:
 				if (s) SDL_FreeSurface(s);
 			}
 		);
-		// auto tex = Texture(
-		// 	[&](){
-		// 		auto t = SDL_CreateTextureFromSurface(ren.get(), sur.get());
-		// 		if (!t) throw std::runtime_error("Failed to create texture.");
-		// 		return t;
-		// 	}(),
-		// 	[](SDL_Texture* t) {
-		// 		if (t) SDL_DestroyTexture(t);
-		// 		DBGMSG("Texture destroyed.");
-		// 	}
-		// );
 		auto tex = create_texture(sur);
 		textures_map.emplace(path, std::move(tex));
 		DBGMSG("New texture loaded.");
@@ -225,9 +220,53 @@ public:
 		}
 	}
 
-	// void load_text(std::string text, TTF_Font* font, int ptsize) {
-	//
-	// }
+	/** Loads text for later use.
+	 * @param text The text to be rendered. 
+	 * @param col The color of the text.
+	 * @param path_to_font Path to the .ttf font to be used. 
+	 * @param ptsize Size of the font as ptsize. 
+	 * @return A rect appropriately sized to fit the text.
+	 * @throws std::runtime_error on failure. */
+	SDL_Rect load_text(
+		std::string text,
+		SDL_Color col,
+		SDL_Point pos,
+		std::string path_to_font,
+		int ptsize)
+	{
+		auto maybe_text = textures_map.find(text);
+		if (maybe_text != textures_map.end())
+			throw std::runtime_error("Text cannot be loaded twice.");
+		auto font = Font(
+			[&](){
+				auto f = TTF_OpenFont(path_to_font.data(), ptsize);
+				if (!f) throw std::runtime_error("Faield to load font.");
+				DBGMSG("Font opened.");
+				return f;
+			}(),
+			[](TTF_Font* f) {
+				if (f) TTF_CloseFont(f);
+			}
+		);
+		auto sur = Surface(
+			[&](){
+				auto s = TTF_RenderText_Blended(font.get(), text.data(), col);
+				if (!s) throw std::runtime_error("Failed to create text surface.");
+				DBGMSG("Text surface created.");
+				return s;
+			}(),
+			[](SDL_Surface* s){
+				if (s) SDL_FreeSurface(s);
+			}
+		);
+		auto tex = create_texture(sur);
+		SDL_Rect rect = {pos.x, pos.y, 0, 0};
+		if (TTF_SizeText(font.get(), text.data(), &rect.w, &rect.h))
+			throw std::runtime_error("Failed to set text rect size.");
+		textures_map.emplace(text, std::move(tex));
+		DBGMSG("Text loaded.");
+		return rect;
+	}
 
 	/** Sets the renderer's draw color.
 	 * @param col The color to be used.
