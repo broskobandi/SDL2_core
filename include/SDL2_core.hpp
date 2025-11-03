@@ -43,15 +43,12 @@ SOFTWARE.
 // When TEST is defined, debug messages are saved in a thread local 
 // string object.
 
-namespace SDL2_Core {
-
 #ifndef NDEBUG
 #ifndef TEST
 #include <iostream>
 #define DBGMSG(msg)\
 	std::cout << "[SDL2_CORE_DEBUG] " << (msg) << "\n";
 #else
-inline thread_local std::string dbg_msg;
 #define DBGMSG(msg)\
 	dbg_msg = (msg)
 #endif
@@ -59,11 +56,18 @@ inline thread_local std::string dbg_msg;
 #define DBGMSG(msg)
 #endif
 
+namespace SDL2_Core {
+
+#ifdef TEST
+	inline thread_local std::string dbg_msg;
+#endif
+
 /** Class to manage SDL2 resources and behaviour. */
 class Sdl {
 
 private:
 
+	// For the test utility
 	// Custom types
 
 	using Texture = std::unique_ptr<SDL_Texture, void(*)(SDL_Texture*)>;
