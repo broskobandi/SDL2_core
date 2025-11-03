@@ -38,6 +38,7 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 // Debug messages are only printed when NDEBUG and TEST are not defined.
 // When TEST is defined, debug messages are saved in a thread local 
@@ -72,6 +73,7 @@ private:
 
 	using Texture = std::unique_ptr<SDL_Texture, void(*)(SDL_Texture*)>;
 	using Surface = std::unique_ptr<SDL_Surface, void(*)(SDL_Surface*)>;
+	using Font = std::unique_ptr<TTF_Font, void(*)(TTF_Font*)>;
 	using Renderer = std::unique_ptr<SDL_Renderer, void(*)(SDL_Renderer*)>;
 	using Window = std::unique_ptr<SDL_Window, void(*)(SDL_Window*)>;
 	class Base {
@@ -79,11 +81,14 @@ private:
 		Base(Uint32 flags) {
 			if (SDL_Init(flags))
 				throw std::runtime_error("Failed to initialize SDL2.");
-			DBGMSG("SDL2 initialized.");
+			if (TTF_Init())
+				throw std::runtime_error("Failed to initialize TTF.");
+			DBGMSG("SDL2 and TTF initialized.");
 		}
 		~Base() {
+			TTF_Quit();
 			SDL_Quit();
-			DBGMSG("SDL2 terminated.");
+			DBGMSG("SDL2 and TTF terminated.");
 		}
 	};
 
@@ -93,7 +98,25 @@ private:
 	Window win;
 	Renderer ren;
 	std::map<std::string, Texture> textures_map;
+	std::map<std::string, Texture> texts_map;
 
+	// Private methods
+	
+	Texture create_texture(const Surface& surface) {
+		return Texture(
+			[&](){
+				auto t = SDL_CreateTextureFromSurface(ren.get(), surface.get());
+				if (!t) throw std::runtime_error("Failed to create texture.");
+				DBGMSG("Texture created.");
+				return t;
+			}(),
+			[](SDL_Texture* t) {
+				if (t) SDL_DestroyTexture(t);
+				DBGMSG("Texture destroyed.");
+			}
+		);
+	}
+	
 public:
 
 	// Structs and enums
@@ -177,17 +200,18 @@ public:
 				if (s) SDL_FreeSurface(s);
 			}
 		);
-		auto tex = Texture(
-			[&](){
-				auto t = SDL_CreateTextureFromSurface(ren.get(), sur.get());
-				if (!t) throw std::runtime_error("Failed to create texture.");
-				return t;
-			}(),
-			[](SDL_Texture* t) {
-				if (t) SDL_DestroyTexture(t);
-				DBGMSG("Texture destroyed.");
-			}
-		);
+		// auto tex = Texture(
+		// 	[&](){
+		// 		auto t = SDL_CreateTextureFromSurface(ren.get(), sur.get());
+		// 		if (!t) throw std::runtime_error("Failed to create texture.");
+		// 		return t;
+		// 	}(),
+		// 	[](SDL_Texture* t) {
+		// 		if (t) SDL_DestroyTexture(t);
+		// 		DBGMSG("Texture destroyed.");
+		// 	}
+		// );
+		auto tex = create_texture(sur);
 		textures_map.emplace(path, std::move(tex));
 		DBGMSG("New texture loaded.");
 	}
@@ -200,6 +224,10 @@ public:
 			load_texture(path);
 		}
 	}
+
+	// void load_text(std::string text, TTF_Font* font, int ptsize) {
+	//
+	// }
 
 	/** Sets the renderer's draw color.
 	 * @param col The color to be used.
