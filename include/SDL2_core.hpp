@@ -317,6 +317,15 @@ public:
 		}
 	}
 
+	/** Draws based on the specified vector of renderer data.
+	 * @param data The vector of renderer data to be used.
+	 * @throws std::runtime_error on failure. */
+	void draw(std::vector<RenderData> data) {
+		for (auto d : data) {
+			draw(d);
+		}
+	}
+
 	/** Presents the rendered objects. */
 	void present() {
 		SDL_RenderPresent(ren.get());
