@@ -138,14 +138,6 @@ public:
 
 		/** The texture's flip state. */
 		SDL_RendererFlip flip {SDL_FLIP_NONE};
-
-		/** Text to be rendered.
-		 * If nullopt, texture will be considered as non-text. */
-		std::optional<std::string> text;
-
-		/** Size of the font to be rendered.
-		 * If nullopt, texture will be considered as non-text. */
-		std::optional<int> ptsize;
 	};
 
 	// Constructor
